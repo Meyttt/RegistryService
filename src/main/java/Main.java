@@ -21,6 +21,7 @@ import java.util.List;
  */
 public class Main {
     public static void main(String[] args) throws IOException {
+        SSLTool.disableCertificateValidation();
         RegistryService registryService = new RegistryService(new URL("http://10.215.0.155/GUC_Registry/Services/RegistryService.asmx?wsdl"));
         List<TSLInfo> list = registryService.getRegistryServiceSoap().getTSLInfos(true).getTSLInfo();
         TSLInfo tslInfo = list.get(0);
