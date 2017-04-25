@@ -16,6 +16,8 @@ import java.net.URL;
 import java.net.URLConnection;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
+import java.util.Base64;
+import java.util.Date;
 import java.util.List;
 
 /**
@@ -25,26 +27,23 @@ public class Main {
     public static void main(String[] args) throws IOException, SAXException {
         Config config = new Config("config.properties");
         Logger logger = Logger.getLogger(Main.class);
-        SSLTool.disableCertificateValidation();
-        RegistryService registryService = new RegistryService(new URL(config.get("wsdl")));
-        List<TSLInfo> list = registryService.getRegistryServiceSoap().getTSLInfos(true).getTSLInfo();
-        TSLInfo tslInfo = list.get(0);
-        byte[] wsdl=tslInfo.getData();
-        byte[] url=getBytesFromUrl(new URL(config.get("file")));
-//        logger.warn(wsdl);
-//        logger.warn(new String(wsdl));
-//        logger.warn(url);
-//        logger.warn(new String(url));
-        XMLUnit.setIgnoreAttributeOrder(true);
-        XMLUnit.setIgnoreComments(true);
-        XMLUnit.setIgnoreWhitespace(true);
-        Diff diff = new Diff(new String(wsdl),
-                new String(url));
-        Assert.assertTrue(diff.similar());
-//        FileOutputStream fileOutputStream = new FileOutputStream("data/wsdl.xml");
-//        fileOutputStream.write(tslInfo.getData());
-//        main2();
+        logger.warn("Проверка системы мониторинга от "+new Date());
 
+        try {
+
+            SSLTool.disableCertificateValidation();
+            RegistryService registryService = new RegistryService(new URL(config.get("wsdl")));
+            List<TSLInfo> list = registryService.getRegistryServiceSoap().getTSLInfos(true).getTSLInfo();
+            TSLInfo tslInfo = list.get(0);
+            byte[] wsdl=tslInfo.getData();
+            byte[] url=getBytesFromUrl(new URL(config.get("file")));
+            Assert.assertTrue(new String(wsdl).equals(new String(url)));
+            logger.warn("Проверка прошла успешно.");
+        }catch (Exception e){
+            logger.error("Проверка провалена. Причина: "+e.getMessage());
+        }catch (AssertionError e1){
+            logger.error("Проверка провалена.");
+        }
     }
 
     public static void main2() throws IOException {
