@@ -27,7 +27,7 @@ public class Main {
     public static void main(String[] args) throws IOException, SAXException {
         Config config = new Config("config.properties");
         Logger logger = Logger.getLogger(Main.class);
-        logger.warn("Проверка системы мониторинга от "+new Date());
+        logger.warn("Проверка подсистемы реестра от "+new Date());
 
         try {
 
