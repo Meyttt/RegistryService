@@ -1,3 +1,4 @@
+import java.io.*;
 import java.lang.String;
 import org.apache.commons.io.IOUtils;
 import org.apache.log4j.Logger;
@@ -8,10 +9,6 @@ import org.xml.sax.SAXException;
 import registry.ca.rt.RegistryService;
 import registry.ca.rt.TSLInfo;
 
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.nio.channels.Channels;
@@ -28,21 +25,32 @@ public class Main {
         Config config = new Config("config.properties");
         Logger logger = Logger.getLogger(Main.class);
         logger.warn("Проверка подсистемы реестра от "+new Date());
-
+        File log = new File(new File(".").getAbsolutePath()+"\\..\\"+"log.txt");
+        FileWriter fileWriter = new FileWriter(log,true);
         try {
 
             SSLTool.disableCertificateValidation();
             RegistryService registryService = new RegistryService(new URL(config.get("wsdl")));
             List<TSLInfo> list = registryService.getRegistryServiceSoap().getTSLInfos(true).getTSLInfo();
             TSLInfo tslInfo = list.get(0);
+            logger.info("Получение файла от сервиса "+config.get("wsdl"));
             byte[] wsdl=tslInfo.getData();
+            logger.info("Успешно.");
+            logger.info("Получение файла по адресу "+config.get("file"));
             byte[] url=getBytesFromUrl(new URL(config.get("file")));
+            logger.info("Успешно.");
+            logger.info("Сравнение...");
             Assert.assertTrue(new String(wsdl).equals(new String(url)));
+            logger.info("Успешно.");
             logger.warn("Проверка прошла успешно.");
         }catch (Exception e){
-            logger.error("Проверка провалена. Причина: "+e.getMessage());
+            fileWriter.append("Проверка подсистемы реестра прошла успешно\n");
+            logger.error("Проверка провалена. Причина: "+ stackTraceToString(e));
         }catch (AssertionError e1){
-            logger.error("Проверка провалена.");
+            logger.error("Проверка провалена. Причина: "+stackTraceToString(e1));
+            fileWriter.append("Проверка подсистемы реестра провалена\n");
+        }finally {
+            fileWriter.flush();
         }
     }
 
@@ -69,5 +77,13 @@ public class Main {
       }catch (IOException e){
           return null;
       }
+    }
+    public static String stackTraceToString(Throwable e){
+        StringBuilder stringBuilder = new StringBuilder();
+        for(StackTraceElement stackTraceElement:e.getStackTrace()){
+            stringBuilder.append(stackTraceElement.toString());
+            stringBuilder.append("\n");
+        }
+        return stringBuilder.toString();
     }
 }
