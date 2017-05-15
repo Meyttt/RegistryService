@@ -24,11 +24,10 @@ public class Main {
     public static void main(String[] args) throws IOException, SAXException {
         Config config = new Config("config.properties");
         Logger logger = Logger.getLogger(Main.class);
-        logger.warn("Проверка подсистемы реестра от "+new Date());
+        logger.info("********Проверка ССВС от "+new Date()+"********");
         File log = new File(new File(".").getAbsolutePath()+"\\..\\"+"log.txt");
         FileWriter fileWriter = new FileWriter(log,true);
         try {
-
             SSLTool.disableCertificateValidation();
             RegistryService registryService = new RegistryService(new URL(config.get("wsdl")));
             List<TSLInfo> list = registryService.getRegistryServiceSoap().getTSLInfos(true).getTSLInfo();
@@ -42,15 +41,20 @@ public class Main {
             logger.info("Сравнение...");
             Assert.assertTrue(new String(wsdl).equals(new String(url)));
             logger.info("Успешно.");
-            logger.warn("Проверка прошла успешно.");
+            logger.info("Проверка прошла успешно.");
+            fileWriter.append("Проверка ССВС прошла успешно\r\n");
+            fileWriter.flush();
+            System.exit(0);
         }catch (Exception e){
-            fileWriter.append("Проверка подсистемы реестра прошла успешно\n");
+            fileWriter.append("Проверка ССВС провалена\r\n");
             logger.error("Проверка провалена. Причина: "+ stackTraceToString(e));
+            fileWriter.flush();
+            System.exit(1);
         }catch (AssertionError e1){
             logger.error("Проверка провалена. Причина: "+stackTraceToString(e1));
-            fileWriter.append("Проверка подсистемы реестра провалена\n");
-        }finally {
+            fileWriter.append("Проверка ССВС провалена\r\n");
             fileWriter.flush();
+            System.exit(1);
         }
     }
 
@@ -82,7 +86,7 @@ public class Main {
         StringBuilder stringBuilder = new StringBuilder();
         for(StackTraceElement stackTraceElement:e.getStackTrace()){
             stringBuilder.append(stackTraceElement.toString());
-            stringBuilder.append("\n");
+            stringBuilder.append("\r\n");
         }
         return stringBuilder.toString();
     }
