@@ -13,9 +13,12 @@ import java.net.URL;
 import java.net.URLConnection;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.Base64;
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Created by a.chebotareva on 18.04.2017.
@@ -24,19 +27,22 @@ public class Main {
     public static void main(String[] args) throws IOException, SAXException {
         Config config = new Config("config.properties");
         Logger logger = Logger.getLogger(Main.class);
-        logger.info("********Проверка ССВС от "+new Date()+"********");
+        Date date = new Date();
+        logger.info("********Проверка ССВС от "+date+"********");
         File log = new File(new File(".").getAbsolutePath()+"\\..\\"+"log.txt");
         FileWriter fileWriter = new FileWriter(log,true);
+        byte[] wsdl=null;
+        byte[] url=null;
         try {
             SSLTool.disableCertificateValidation();
             RegistryService registryService = new RegistryService(new URL(config.get("wsdl")));
             List<TSLInfo> list = registryService.getRegistryServiceSoap().getTSLInfos(true).getTSLInfo();
             TSLInfo tslInfo = list.get(0);
             logger.info("Получение файла от сервиса "+config.get("wsdl"));
-            byte[] wsdl=tslInfo.getData();
+            wsdl=tslInfo.getData();
             logger.info("Успешно.");
             logger.info("Получение файла по адресу "+config.get("file"));
-            byte[] url=getBytesFromUrl(new URL(config.get("file")));
+            url=getBytesFromUrl(new URL(config.get("file")));
             logger.info("Успешно.");
             logger.info("Сравнение...");
             Assert.assertTrue(new String(wsdl).equals(new String(url)));
@@ -44,6 +50,40 @@ public class Main {
             logger.info("Проверка прошла успешно.");
             fileWriter.append("Проверка ССВС прошла успешно\r\n");
             fileWriter.flush();
+
+            String urlStr = new String(url);
+            String urlDate = urlStr.split("\n")[3];
+            if(urlDate.contains("Дата")){
+                urlDate=urlDate.replace("<Дата>","").replace("</Дата>","").replace("T"," ");
+            }else{
+                for(String row:urlStr.split("\n")){
+                    if(row.contains("Дата")){
+                        urlDate=row.replace("<Дата>","").replace("</Дата>","").replace("T"," ");
+                        break;
+                    }
+                }
+            }
+            String wsdlStr = new String(wsdl);
+            String wsdlDate = wsdlStr.split("\n")[3];
+            if(wsdlDate.contains("Дата")){
+                wsdlDate=wsdlDate.replace("<Дата>","").replace("</Дата>","").replace("T", " ");
+            }else{
+                for(String row:wsdlStr.split("\n")){
+                    if(row.contains("Дата")){
+                        wsdlDate=row.replace("<Дата>","").replace("</Дата>","").replace("T"," ");
+                        break;
+                    }
+                }
+            }
+            SimpleDateFormat answerFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+            Date wsdlD = answerFormat.parse(wsdlDate);
+            Date urlD = answerFormat.parse(urlDate);
+            //todo: всё это в трай блоке!!!
+            long diff = wsdlD.getTime()-urlD.getTime();
+            if(TimeUnit.MILLISECONDS.toSeconds(diff)/60>Integer.parseInt(config.get("difference"))){
+                logger.error("Разница во времени между датами более "+config.get("difference"));
+            }
+
             System.exit(0);
         }catch (Exception e){
             fileWriter.append("Проверка ССВС провалена\r\n");
@@ -51,7 +91,61 @@ public class Main {
             fileWriter.flush();
             System.exit(1);
         }catch (AssertionError e1){
+            String urlStr = new String(url);
+            String urlDate = urlStr.split("\n")[3];
+            if(urlDate.contains("Дата")){
+                urlDate=urlDate.replace("<Дата>","").replace("</Дата>","");
+            }else{
+                for(String row:urlStr.split("\n")){
+                    if(row.contains("Дата")){
+                        urlDate=row.replace("<Дата>","").replace("</Дата>","");
+                        break;
+                    }
+                }
+            }
+
+            String wsdlStr = new String(wsdl);
+            String wsdlDate = wsdlStr.split("\n")[3];
+            if(wsdlDate.contains("Дата")){
+                wsdlDate=wsdlDate.replace("<Дата>","").replace("</Дата>","");
+            }else{
+                for(String row:wsdlStr.split("\n")){
+                    if(row.contains("Дата")){
+                        wsdlDate=row.replace("<Дата>","").replace("</Дата>","");
+                        break;
+                    }
+                }
+            }
+            SimpleDateFormat answerFormat = new SimpleDateFormat("yyyy-MM-ddTHH:mm:ss");
+            try {
+                System.out.println(answerFormat.parse(urlDate).getHours());
+            } catch (ParseException e) {
+                e.printStackTrace();
+            }
+            try {
+                System.out.println(answerFormat.parse(wsdlDate).getHours());
+            } catch (ParseException e) {
+                e.printStackTrace();
+            }
+
+
             logger.error("Проверка провалена. Причина: "+stackTraceToString(e1));
+
+
+            SimpleDateFormat dateFormat = new SimpleDateFormat("ddMMyyyy_HH-mm-ss");
+            String stringDate = dateFormat.format(date);
+            File wsdlFile = new File(new File(".").getAbsolutePath()+"\\..\\"+"wsdl_"+stringDate+".txt");
+            FileWriter wsdlfilewriter = new FileWriter(wsdlFile);
+            wsdlfilewriter.write(new String(wsdl));
+            File urlfile = new File(new File(".").getAbsolutePath()+"\\..\\"+"url_"+stringDate+".txt");
+            FileWriter urlfilewriter = new FileWriter(urlfile);
+            urlfilewriter.write(new String(url));
+            wsdlfilewriter.flush();
+            urlfilewriter.flush();
+            logger.error("Получено от wsdl службы "+ config.get("wsdl")+": см. в файле "+new File(".").getAbsolutePath()+"\\..\\"+"wsdl_"+stringDate+".txt");
+            logger.error("Получено по адресу "+ config.get("file")+": см. в файле "+new File(".").getAbsolutePath()+"\\..\\"+"url_"+stringDate+".txt");
+            wsdlfilewriter.close();
+            urlfilewriter.close();
             fileWriter.append("Проверка ССВС провалена\r\n");
             fileWriter.flush();
             System.exit(1);
